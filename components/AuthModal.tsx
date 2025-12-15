@@ -1,16 +1,16 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  auth,
+  getAuthInstance,
   signInWithPopup,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   RecaptchaVerifier,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from '../services/firebase';
-import { X, Mail, Lock, User, Loader2, ArrowRight, Smartphone, CheckCircle } from 'lucide-react';
+import { X, Mail, Lock, User, Loader2, ArrowRight, Smartphone, CheckCircle, Shield } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ declare global {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('PHONE');
-  const [mode, setMode] = useState<AuthMode>('LOGIN'); // Only relevant for Email
+  const [mode, setMode] = useState<AuthMode>('LOGIN');
   
   // Email State
   const [email, setEmail] = useState('');
@@ -44,13 +44,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [infoMessage, setInfoMessage] = useState('');
   
   const recaptchaRef = useRef<HTMLDivElement>(null);
 
-  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setError('');
+      setInfoMessage('');
       setLoading(false);
       setShowOtpInput(false);
       setOtp('');
@@ -59,14 +60,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  // --- Handlers ---
-
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier && recaptchaRef.current) {
       try {
-        // Real SDK: new RecaptchaVerifier(auth, container, parameters)
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaRef.current, {
-          'size': 'invisible'
+        const authInstance = getAuthInstance();
+        // Firebase v9 modular RecaptchaVerifier signature:
+        // new RecaptchaVerifier(auth, container, parameters)
+        window.recaptchaVerifier = new RecaptchaVerifier(authInstance, recaptchaRef.current, {
+          size: 'invisible',
         });
       } catch (err) {
         console.error("Recaptcha setup error:", err);
@@ -76,10 +77,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const handleGoogleSignIn = async () => {
     setError('');
+    setInfoMessage('');
     setLoading(true);
     try {
+      const authInstance = getAuthInstance();
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(authInstance, provider);
       onClose();
     } catch (err: any) {
       console.error(err);
@@ -92,16 +95,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInfoMessage('');
     setLoading(true);
 
     try {
+      const authInstance = getAuthInstance();
       if (mode === 'SIGNUP') {
-        const result = await createUserWithEmailAndPassword(auth, email, password);
+        const result = await createUserWithEmailAndPassword(authInstance, email, password);
         if (result.user) {
           await updateProfile(result.user, { displayName: name });
         }
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(authInstance, email, password);
       }
       onClose();
     } catch (err: any) {
@@ -110,6 +115,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       else if (err.code === 'auth/email-already-in-use') setError('Email already registered.');
       else if (err.code === 'auth/weak-password') setError('Password too weak.');
       else setError(err.message || 'Authentication failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError('');
+    setInfoMessage('');
+
+    if (!email) {
+      setError('Please enter your email above first, then click "Forgot password?".');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const authInstance = getAuthInstance();
+      await sendPasswordResetEmail(authInstance, email);
+      setInfoMessage('Password reset email sent. Please check your inbox.');
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/user-not-found') {
+        setError('No account found with this email.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError(err.message || 'Failed to send reset email.');
+      }
     } finally {
       setLoading(false);
     }
@@ -128,8 +161,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setupRecaptcha();
 
     try {
+      const authInstance = getAuthInstance();
       const appVerifier = window.recaptchaVerifier;
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+      const confirmation = await signInWithPhoneNumber(authInstance, phoneNumber, appVerifier);
       setConfirmationResult(confirmation);
       setShowOtpInput(true);
     } catch (err: any) {
@@ -162,8 +196,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  // --- Render Helpers ---
-
+  // ...rest of component (UI rendering stays the same)...
   const renderGoogleButton = () => (
     <button
       onClick={handleGoogleSignIn}
@@ -183,7 +216,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-md overflow-hidden bg-white shadow-2xl rounded-3xl animate-slide-up">
-        {/* Close Button */}
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-slate-400 rounded-full hover:bg-slate-100 hover:text-slate-600 transition-colors z-10"
@@ -191,7 +223,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <X size={20} />
         </button>
 
-        {/* Header */}
         <div className="px-8 pt-10 pb-4 text-center">
           <h2 className="text-2xl font-bold text-slate-900">
             {mode === 'LOGIN' ? 'Welcome Back' : 'Get Started'}
@@ -207,11 +238,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               {error}
             </div>
           )}
+          {infoMessage && !error && (
+            <div className="mb-4 p-3 text-sm text-center text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-100">
+              {infoMessage}
+            </div>
+          )}
 
-          {/* Social Auth */}
           {renderGoogleButton()}
 
-          {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200"></div>
@@ -221,7 +255,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Method Toggle */}
           <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-slate-100 rounded-xl">
             <button
               onClick={() => { setAuthMethod('PHONE'); setError(''); }}
@@ -241,7 +274,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          {/* Phone Auth Form */}
           {authMethod === 'PHONE' && (
             <form onSubmit={showOtpInput ? handleVerifyOtp : handleSendOtp} className="space-y-4">
               {!showOtpInput ? (
@@ -260,7 +292,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       placeholder="+91 98765 43210"
                     />
                   </div>
-                  {/* Invisible Recaptcha Container */}
                   <div ref={recaptchaRef}></div>
                 </div>
               ) : (
@@ -302,7 +333,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </form>
           )}
 
-          {/* Email Auth Form */}
           {authMethod === 'EMAIL' && (
             <form onSubmit={handleEmailSubmit} className="space-y-4 animate-fade-in">
               {mode === 'SIGNUP' && (
@@ -336,7 +366,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full py-3 pl-10 pr-3 text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-300"
-                    placeholder="you@example.com"
+                    placeholder="you@example.com or 'demo'"
                   />
                 </div>
               </div>
@@ -370,6 +400,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   </>
                 )}
               </button>
+
+              {mode === 'LOGIN' && (
+                <div className="mt-2 text-right">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleForgotPassword}
+                    className="text-xs font-semibold text-primary-600 hover:text-primary-700"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
 
               <div className="pt-2 text-center">
                 <p className="text-sm text-slate-500">

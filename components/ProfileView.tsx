@@ -1,9 +1,10 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserProfileStats } from '../types';
 import { getTotalQuestionCount } from '../services/questionBank';
+import { getUserStats } from '../services/userService';
+import { getTotalUsers, getActiveSessionsCount } from '../services/adminStats';
 import { 
   User, LogOut, Award, BookOpen, Target, 
   TrendingUp, Zap, Crown, BarChart3, AlertCircle,
@@ -16,35 +17,41 @@ interface ProfileViewProps {
   onGotoAdmin?: () => void;
 }
 
-// Mock Data Service - In a real app, this would come from the backend
-const MOCK_STATS: UserProfileStats = {
-  targetExam: 'WBJEE / Class 12',
-  testsAttempted: 14,
-  averageScore: 72,
-  globalRank: 1420,
-  subscriptionPlan: 'PRO',
-  subjectWise: [
-    { subject: 'Physics', accuracy: 65, totalQuestions: 150, color: 'bg-violet-500' },
-    { subject: 'Chemistry', accuracy: 82, totalQuestions: 140, color: 'bg-emerald-500' },
-    { subject: 'Mathematics', accuracy: 58, totalQuestions: 200, color: 'bg-blue-500' },
-    { subject: 'Biology', accuracy: 75, totalQuestions: 80, color: 'bg-rose-500' }
-  ],
-  weakChapters: ['Rotational Mechanics', 'Integration', 'Organic Chemistry Basics', 'Plant Physiology'],
-  recentScores: [55, 62, 58, 70, 75]
+const DEFAULT_STATS: UserProfileStats = {
+  targetExam: 'WBJEE',
+  testsAttempted: 0,
+  averageScore: 0,
+  globalRank: 0,
+  subscriptionPlan: 'Free',
+  subjectWise: [],
+  weakChapters: [],
+  recentScores: []
 };
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin }) => {
   const { currentUser, logout } = useAuth();
   const [totalQuestions, setTotalQuestions] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [activeSessions, setActiveSessions] = useState(0);
+  const [stats, setStats] = useState<UserProfileStats>(DEFAULT_STATS);
 
   const isAdmin = currentUser?.email === 'sayon8023@gmail.com';
 
   useEffect(() => {
     if (isAdmin) {
-      // Async fetch
       getTotalQuestionCount().then(setTotalQuestions);
+      getTotalUsers().then(setTotalUsers);
+      getActiveSessionsCount().then(setActiveSessions);
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    getUserStats(currentUser.uid).then((loaded) => {
+      if (loaded) setStats(loaded);
+      else setStats(DEFAULT_STATS);
+    });
+  }, [currentUser?.uid]);
 
   const handleLogout = async () => {
     try {
@@ -98,7 +105,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
              <div className="flex justify-between items-start">
                <div>
                  <p className="text-sm font-medium text-slate-500 mb-1">Total Users</p>
-                 <h3 className="text-3xl font-bold text-slate-900">2,451</h3>
+                 <h3 className="text-3xl font-bold text-slate-900">{totalUsers}</h3>
                </div>
                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
                  <Users size={24} />
@@ -142,7 +149,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
              <div className="flex justify-between items-start">
                <div>
                  <p className="text-sm font-medium text-slate-500 mb-1">Active Sessions</p>
-                 <h3 className="text-3xl font-bold text-slate-900">42</h3>
+                 <h3 className="text-3xl font-bold text-slate-900">{activeSessions}</h3>
                </div>
                <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
                  <Activity size={24} />
@@ -274,13 +281,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
                 <span className="text-sm font-medium text-slate-500 flex items-center gap-2">
                   <Target size={16} /> Target
                 </span>
-                <span className="text-sm font-bold text-slate-900">{MOCK_STATS.targetExam}</span>
+                <span className="text-sm font-bold text-slate-900">{stats.targetExam}</span>
               </div>
               <div className="w-full flex justify-between items-center bg-amber-50 rounded-xl p-3 border border-amber-100">
                 <span className="text-sm font-medium text-amber-700 flex items-center gap-2">
                   <Crown size={16} /> Plan
                 </span>
-                <span className="text-sm font-bold text-amber-700">{MOCK_STATS.subscriptionPlan} Member</span>
+                <span className="text-sm font-bold text-amber-700">{stats.subscriptionPlan} Member</span>
               </div>
             </div>
           </div>
@@ -292,21 +299,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
                   <BookOpen size={18} />
                   <span className="text-xs font-semibold uppercase tracking-wider">Tests</span>
                </div>
-               <div className="text-2xl font-bold text-slate-900">{MOCK_STATS.testsAttempted}</div>
+               <div className="text-2xl font-bold text-slate-900">{stats.testsAttempted}</div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                <div className="flex items-center gap-2 text-slate-400 mb-2">
                   <Award size={18} />
                   <span className="text-xs font-semibold uppercase tracking-wider">Rank</span>
                </div>
-               <div className="text-2xl font-bold text-slate-900">#{MOCK_STATS.globalRank}</div>
+               <div className="text-2xl font-bold text-slate-900">#{stats.globalRank}</div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                <div className="flex items-center gap-2 text-slate-400 mb-2">
                   <Zap size={18} />
                   <span className="text-xs font-semibold uppercase tracking-wider">Avg Score</span>
                </div>
-               <div className="text-2xl font-bold text-slate-900">{MOCK_STATS.averageScore}%</div>
+               <div className="text-2xl font-bold text-slate-900">{stats.averageScore}%</div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                <div className="flex items-center gap-2 text-slate-400 mb-2">
@@ -324,7 +331,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
               Focus Areas
             </h4>
             <div className="flex flex-wrap gap-2">
-              {MOCK_STATS.weakChapters.map((chapter, i) => (
+              {stats.weakChapters.map((chapter, i) => (
                 <span key={i} className="px-3 py-1 bg-red-50 text-red-700 text-xs font-medium rounded-full border border-red-100">
                   {chapter}
                 </span>
@@ -353,7 +360,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
             </div>
             
             <div className="h-48 flex items-end justify-between gap-4 px-2">
-              {MOCK_STATS.recentScores.map((score, index) => (
+              {stats.recentScores.map((score, index) => (
                 <div key={index} className="w-full flex flex-col items-center gap-2 group">
                    <div className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold text-slate-600 mb-1">{score}%</div>
                    <div 
@@ -372,7 +379,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200">
             <h3 className="text-xl font-bold text-slate-900 mb-6">Subject Proficiency</h3>
             <div className="space-y-6">
-              {MOCK_STATS.subjectWise.map((sub) => (
+              {stats.subjectWise.map((sub) => (
                 <div key={sub.subject}>
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-slate-700">{sub.subject}</span>

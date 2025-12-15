@@ -1,72 +1,107 @@
 
 import { Question } from '../types';
+import { getDb, firestore } from './firebase';
 
-// Using LocalStorage to mock a database for persistence in the demo
-const STORAGE_KEY = 'udan_bangla_question_bank';
+// Firestore collection name
+const QUESTIONS_COLLECTION = 'questions';
 
-const getStore = (): any[] => {
+// Helper to map Firestore doc -> Question
+const mapDocToQuestion = (docSnap: any): Question => {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id, // Use Firestore doc ID
+    questionText: data.questionText,
+    options: data.options,
+    correctAnswerIndex: data.correctAnswerIndex,
+    explanation: data.explanation ?? '',
+  };
+};
+
+export const getQuestionsForTopic = async (topicId: string): Promise<Question[]> => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
+    const db = getDb();
+    const q = firestore.query(
+      firestore.collection(db, QUESTIONS_COLLECTION),
+      firestore.where('topicId', '==', topicId)
+    );
+    const snapshot = await firestore.getDocs(q);
+    return snapshot.docs.map(mapDocToQuestion);
+  } catch (error) {
+    console.error('Failed to load questions from Firestore', error);
     return [];
   }
 };
 
-const saveStore = (data: any[]) => {
+export const addQuestionToBank = async (topicId: string, question: Question): Promise<void> => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error("Failed to save to local storage", e);
+    const db = getDb();
+    await firestore.addDoc(firestore.collection(db, QUESTIONS_COLLECTION), {
+      topicId,
+      questionText: question.questionText,
+      options: question.options,
+      correctAnswerIndex: question.correctAnswerIndex,
+      explanation: question.explanation ?? '',
+      createdAt: Date.now(),
+    });
+  } catch (error) {
+    console.error('Failed to add question to Firestore', error);
+    throw error;
   }
 };
 
-export const getQuestionsForTopic = async (topicId: string): Promise<Question[]> => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 600));
-  const allQuestions = getStore();
-  return allQuestions.filter(q => q.topicId === topicId);
+export const bulkAddQuestionsToBank = async (topicId: string, questions: Question[]): Promise<void> => {
+  try {
+    const db = getDb();
+
+    // For simplicity in the demo, use multiple addDoc calls (can be optimized with batched writes).
+    const ops = questions.map((q) =>
+      firestore.addDoc(firestore.collection(db, QUESTIONS_COLLECTION), {
+        topicId,
+        questionText: q.questionText,
+        options: q.options,
+        correctAnswerIndex: q.correctAnswerIndex,
+        explanation: q.explanation ?? '',
+        createdAt: Date.now(),
+      })
+    );
+
+    await Promise.all(ops);
+  } catch (error) {
+    console.error('Failed to bulk add questions to Firestore', error);
+    throw error;
+  }
 };
 
-export const addQuestionToBank = async (topicId: string, question: Question) => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  const allQuestions = getStore();
-  
-  // Create a new record with ID
-  const newRecord = {
-    ...question,
-    id: question.id || `q-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    topicId,
-    createdAt: new Date().toISOString()
-  };
-  
-  allQuestions.push(newRecord);
-  saveStore(allQuestions);
+export const clearTopicQuestions = async (topicId: string): Promise<void> => {
+  try {
+    const db = getDb();
+    const q = firestore.query(
+      firestore.collection(db, QUESTIONS_COLLECTION),
+      firestore.where('topicId', '==', topicId)
+    );
+    const snapshot = await firestore.getDocs(q);
+
+    const deletions = snapshot.docs.map((docSnap) =>
+      firestore.deleteDoc(firestore.doc(db, QUESTIONS_COLLECTION, docSnap.id))
+    );
+
+    await Promise.all(deletions);
+  } catch (error) {
+    console.error('Failed to clear topic questions in Firestore', error);
+    throw error;
+  }
 };
 
-export const bulkAddQuestionsToBank = async (topicId: string, questions: Question[]) => {
-  await new Promise(resolve => setTimeout(resolve, 800));
-  const allQuestions = getStore();
-  
-  const newRecords = questions.map((q, idx) => ({
-    ...q,
-    id: q.id || `q-${Date.now()}-${idx}`,
-    topicId,
-    createdAt: new Date().toISOString()
-  }));
-  
-  allQuestions.push(...newRecords);
-  saveStore(allQuestions);
-};
-
-export const clearTopicQuestions = async (topicId: string) => {
-  await new Promise(resolve => setTimeout(resolve, 400));
-  const allQuestions = getStore();
-  const filtered = allQuestions.filter(q => q.topicId !== topicId);
-  saveStore(filtered);
-};
-
+// Utility used in admin profile to show total items in the bank
 export const getTotalQuestionCount = async (): Promise<number> => {
-  const allQuestions = getStore();
-  return allQuestions.length;
+  try {
+    const db = getDb();
+    const snapshot = await firestore.getDocs(
+      firestore.collection(db, QUESTIONS_COLLECTION)
+    );
+    return snapshot.size;
+  } catch (error) {
+    console.error('Failed to get total question count from Firestore', error);
+    return 0;
+  }
 };

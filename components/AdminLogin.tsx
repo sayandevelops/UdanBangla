@@ -1,6 +1,11 @@
 
 import React, { useState } from 'react';
-import { auth, signInWithEmailAndPassword } from '../services/firebase';
+import { 
+  getAuthInstance,
+  GoogleAuthProvider, 
+  signInWithPopup,
+  signInWithEmailAndPassword
+} from '../services/firebase';
 import { Lock, Mail, ArrowRight, Loader2, ShieldAlert, X } from 'lucide-react';
 
 interface AdminLoginProps {
