@@ -1,184 +1,130 @@
+// Mock implementation of Firebase services
+// This allows the app to run without requiring a valid Firebase project configuration or node_modules
+import { User as UserType } from '../types';
 
-import { User } from '../types';
+// Mock User object matching the structure expected by the app
+const MOCK_USER: UserType = {
+  uid: 'mock-user-123',
+  email: 'student@example.com',
+  phoneNumber: null,
+  displayName: 'Demo Student',
+  photoURL: null,
+  metadata: {
+    creationTime: new Date().toISOString(),
+    lastSignInTime: new Date().toISOString()
+  }
+};
 
-/**
- * MOCK FIREBASE SERVICE
- * 
- * The real Firebase SDK throws "auth/operation-not-supported-in-this-environment" 
- * in this preview environment due to cross-origin isolation and storage restrictions.
- * 
- * This mock service provides a working authentication experience for the demo.
- */
+const ADMIN_USER: UserType = {
+  uid: 'admin-user-999',
+  email: 'sayon8023@gmail.com',
+  phoneNumber: null,
+  displayName: 'Admin User',
+  photoURL: null,
+  metadata: {
+    creationTime: new Date().toISOString(),
+    lastSignInTime: new Date().toISOString()
+  }
+};
 
-// --- Mock Classes ---
+let currentUser: UserType | null = null;
+const authListeners: ((user: UserType | null) => void)[] = [];
+
+const notifyListeners = () => {
+  authListeners.forEach(listener => listener(currentUser));
+};
+
+// --- Auth Exports ---
+
+export const auth = {
+  get currentUser() { return currentUser; }
+};
+
+export const onAuthStateChanged = (authInstance: any, callback: (user: UserType | null) => void) => {
+  authListeners.push(callback);
+  // Initial callback
+  setTimeout(() => callback(currentUser), 0);
+  return () => {
+    const index = authListeners.indexOf(callback);
+    if (index > -1) authListeners.splice(index, 1);
+  };
+};
+
+export const signOut = async (authInstance: any) => {
+  currentUser = null;
+  notifyListeners();
+  return Promise.resolve();
+};
+
+export const signInWithPopup = async (authInstance: any, provider: any) => {
+  currentUser = MOCK_USER;
+  notifyListeners();
+  return Promise.resolve({ user: currentUser });
+};
+
+export const signInWithEmailAndPassword = async (authInstance: any, email: string, password: string) => {
+  if (email === ADMIN_USER.email) {
+    currentUser = ADMIN_USER;
+  } else {
+    currentUser = {
+      ...MOCK_USER,
+      uid: 'user-' + Date.now(),
+      email: email,
+      displayName: email.split('@')[0]
+    };
+  }
+  notifyListeners();
+  return Promise.resolve({ user: currentUser });
+};
+
+export const createUserWithEmailAndPassword = async (authInstance: any, email: string, password: string) => {
+  currentUser = {
+    ...MOCK_USER,
+    uid: 'new-user-' + Date.now(),
+    email: email,
+    displayName: email.split('@')[0]
+  };
+  notifyListeners();
+  return Promise.resolve({ user: currentUser });
+};
+
+export const signInWithPhoneNumber = async (authInstance: any, phoneNumber: string, verifier: any) => {
+  return Promise.resolve({
+    confirm: async (otp: string) => {
+      if (otp === '123456') {
+        currentUser = {
+          ...MOCK_USER,
+          uid: 'phone-user-' + Date.now(),
+          email: null,
+          phoneNumber: phoneNumber,
+          displayName: 'Mobile User'
+        };
+        notifyListeners();
+        return { user: currentUser };
+      }
+      throw new Error('Invalid OTP. Use 123456');
+    }
+  });
+};
+
+export const updateProfile = async (user: any, profile: { displayName?: string, photoURL?: string }) => {
+  if (currentUser) {
+    if (profile.displayName) currentUser.displayName = profile.displayName;
+    if (profile.photoURL) currentUser.photoURL = profile.photoURL;
+    notifyListeners();
+  }
+  return Promise.resolve();
+};
 
 export class GoogleAuthProvider {}
 
 export class RecaptchaVerifier {
-  constructor(container: HTMLElement | string, parameters: any, auth: any) {}
-  verify() { return Promise.resolve(true); }
+  constructor(authInstance: any, container: any, params: any) {}
   render() { return Promise.resolve(0); }
-  clear() {}
+  verify() { return Promise.resolve('mock-token'); }
 }
 
-// --- Mock State ---
+// --- Firestore Exports ---
 
-let currentUser: User | null = null;
-let authStateListeners: ((user: User | null) => void)[] = [];
-
-// Initialize from local storage if available
-try {
-  const stored = localStorage.getItem('udan_bangla_mock_user');
-  if (stored) {
-    currentUser = JSON.parse(stored);
-  }
-} catch (e) {
-  console.warn('LocalStorage not available');
-}
-
-// --- Helpers ---
-
-const notifyListeners = () => {
-  authStateListeners.forEach(listener => listener(currentUser));
-};
-
-const updateStorage = () => {
-  try {
-    if (currentUser) {
-      localStorage.setItem('udan_bangla_mock_user', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('udan_bangla_mock_user');
-    }
-  } catch (e) {
-    // Ignore storage errors
-  }
-};
-
-const mockDelay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
-
-// --- Auth Methods ---
-
-export const auth = {
-  // Mock property to satisfy some SDK checks
-  currentUser: currentUser
-};
-
-export const onAuthStateChanged = (
-  _authInstance: any, 
-  callback: (user: User | null) => void
-) => {
-  authStateListeners.push(callback);
-  // Immediate callback
-  callback(currentUser);
-  return () => {
-    authStateListeners = authStateListeners.filter(cb => cb !== callback);
-  };
-};
-
-export const signOut = async (_authInstance: any) => {
-  await mockDelay(500);
-  currentUser = null;
-  updateStorage();
-  notifyListeners();
-};
-
-export const signInWithPopup = async (_authInstance: any, _provider: any) => {
-  await mockDelay(1500);
-  currentUser = {
-    uid: 'mock-google-' + Date.now(),
-    email: 'student@gmail.com',
-    phoneNumber: null,
-    displayName: 'Google User',
-    photoURL: null,
-    metadata: {
-      creationTime: new Date().toISOString(),
-      lastSignInTime: new Date().toISOString()
-    }
-  };
-  updateStorage();
-  notifyListeners();
-  return { user: currentUser };
-};
-
-export const signInWithEmailAndPassword = async (_authInstance: any, email: string, password: string) => {
-  await mockDelay(1000);
-  
-  // Admin Login Check
-  if (email === 'sayon8023@gmail.com') {
-    if (password !== '123450') {
-      throw { code: 'auth/wrong-password', message: 'Invalid password for admin.' };
-    }
-    // Admin User Object
-    currentUser = {
-      uid: 'admin-uid-sayon',
-      email: email,
-      phoneNumber: null,
-      displayName: 'System Administrator',
-      photoURL: null,
-      metadata: {
-        creationTime: new Date().toISOString(),
-        lastSignInTime: new Date().toISOString()
-      }
-    };
-  } else {
-    // Basic validation for other users
-    if (!email.includes('@')) throw { code: 'auth/invalid-email', message: 'Invalid email' };
-    
-    // Normal User Object
-    currentUser = {
-      uid: 'mock-email-' + Date.now(),
-      email: email,
-      phoneNumber: null,
-      displayName: email.split('@')[0],
-      photoURL: null,
-      metadata: {
-        creationTime: new Date().toISOString(),
-        lastSignInTime: new Date().toISOString()
-      }
-    };
-  }
-  
-  updateStorage();
-  notifyListeners();
-  return { user: currentUser };
-};
-
-export const createUserWithEmailAndPassword = async (_authInstance: any, email: string, password: string) => {
-  // Use same logic as sign in for mock
-  return signInWithEmailAndPassword(_authInstance, email, password);
-};
-
-export const signInWithPhoneNumber = async (_authInstance: any, phoneNumber: string, _verifier: any) => {
-  await mockDelay(1000);
-  // Return a mock confirmation result
-  return {
-    confirm: async (otp: string) => {
-      await mockDelay(800);
-      if (otp !== '123456') throw { code: 'auth/invalid-verification-code', message: 'Invalid OTP' };
-      
-      currentUser = {
-        uid: 'mock-phone-' + Date.now(),
-        email: null,
-        phoneNumber: phoneNumber,
-        displayName: 'Mobile User',
-        photoURL: null,
-        metadata: {
-          creationTime: new Date().toISOString(),
-          lastSignInTime: new Date().toISOString()
-        }
-      };
-      updateStorage();
-      notifyListeners();
-      return { user: currentUser };
-    }
-  };
-};
-
-export const updateProfile = async (user: User, updates: { displayName: string }) => {
-  await mockDelay(500);
-  if (currentUser && currentUser.uid === user.uid) {
-    currentUser = { ...currentUser, ...updates };
-    updateStorage();
-    notifyListeners();
-  }
-};
+export const db = {}; // Mock DB object
+export const getFirestore = (app: any) => db;

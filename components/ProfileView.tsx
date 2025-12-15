@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserProfileStats } from '../types';
-import { getQuestionBank } from '../services/questionBank';
+import { getTotalQuestionCount } from '../services/questionBank';
 import { 
   User, LogOut, Award, BookOpen, Target, 
   TrendingUp, Zap, Crown, BarChart3, AlertCircle,
@@ -40,10 +40,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onBack, onGotoAdmin })
 
   useEffect(() => {
     if (isAdmin) {
-      const bank = getQuestionBank();
-      // Calculate total questions in the bank
-      const count = Object.values(bank).reduce((acc, curr) => acc + curr.length, 0);
-      setTotalQuestions(count);
+      // Async fetch
+      getTotalQuestionCount().then(setTotalQuestions);
     }
   }, [isAdmin]);
 

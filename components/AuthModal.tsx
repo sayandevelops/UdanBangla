@@ -10,7 +10,7 @@ import {
   RecaptchaVerifier,
   updateProfile
 } from '../services/firebase';
-import { X, Mail, Lock, User, Loader2, ArrowRight, Smartphone, CheckCircle, Shield } from 'lucide-react';
+import { X, Mail, Lock, User, Loader2, ArrowRight, Smartphone, CheckCircle } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -64,8 +64,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier && recaptchaRef.current) {
       try {
-        // Mock Verifier
-        window.recaptchaVerifier = new RecaptchaVerifier(recaptchaRef.current, {}, auth);
+        // Real SDK: new RecaptchaVerifier(auth, container, parameters)
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaRef.current, {
+          'size': 'invisible'
+        });
       } catch (err) {
         console.error("Recaptcha setup error:", err);
       }
@@ -130,8 +132,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
       setConfirmationResult(confirmation);
       setShowOtpInput(true);
-      // Demo helper
-      alert("Demo OTP: 123456");
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to send OTP.');
@@ -336,7 +336,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full py-3 pl-10 pr-3 text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-300"
-                    placeholder="you@example.com or 'demo'"
+                    placeholder="you@example.com"
                   />
                 </div>
               </div>

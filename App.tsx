@@ -118,8 +118,8 @@ const UdanBanglaApp = () => {
       setSelectedTopic(topic);
       setStatus(QuizStatus.LOADING);
 
-      // Check for locally generated/admin questions first
-      const localQuestions = getQuestionsForTopic(topic.id);
+      // Check for locally generated/admin questions first (async now)
+      const localQuestions = await getQuestionsForTopic(topic.id);
       
       if (localQuestions.length > 0) {
         // Shuffle and pick 5 if available
@@ -203,8 +203,6 @@ const UdanBanglaApp = () => {
   };
 
   const currentTopics = getTopicsForView();
-  // Combine all topics for admin
-  const allTopics = [...GENERAL_TOPICS, ...WBJEE_TOPICS];
 
   // ----------------------------------------------------------------------
   // Renders
@@ -469,7 +467,11 @@ const UdanBanglaApp = () => {
        setView('ADMIN_LOGIN');
        return null;
     }
-    return <AdminPanel topics={allTopics} onExit={goHome} />;
+    const adminGroups = [
+      { groupName: 'Standard Board (Class 11 & 12)', topics: GENERAL_TOPICS },
+      { groupName: 'WBJEE (Engineering Entrance)', topics: WBJEE_TOPICS }
+    ];
+    return <AdminPanel topicGroups={adminGroups} onExit={goHome} />;
   }
 
   return (

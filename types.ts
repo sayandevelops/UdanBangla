@@ -6,7 +6,7 @@ export enum Difficulty {
 }
 
 export interface Question {
-  id: number;
+  id: number | string;
   questionText: string;
   options: string[];
   correctAnswerIndex: number;
