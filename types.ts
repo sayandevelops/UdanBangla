@@ -5,6 +5,8 @@ export enum Difficulty {
   HARD = 'Hard'
 }
 
+export type SubscriptionTier = 'FREE' | 'PRO' | 'ELITE';
+
 export interface Question {
   id: number | string;
   questionText: string;
@@ -33,6 +35,8 @@ export interface TopicDef {
   description: string;
   iconName: string;
   color: string;
+  isPremium?: boolean; // New field
+  minTier?: SubscriptionTier; // New field
 }
 
 export interface User {
@@ -41,6 +45,7 @@ export interface User {
   phoneNumber: string | null;
   displayName: string | null;
   photoURL: string | null;
+  subscriptionTier?: SubscriptionTier; // New field
   metadata: {
     creationTime?: string;
     lastSignInTime?: string;
@@ -59,7 +64,7 @@ export interface UserProfileStats {
   testsAttempted: number;
   averageScore: number;
   globalRank: number;
-  subscriptionPlan: 'Free' | 'Pro' | 'Elite';
+  subscriptionPlan: SubscriptionTier;
   subjectWise: SubjectPerformance[];
   weakChapters: string[];
   recentScores: number[]; // Last 5 scores

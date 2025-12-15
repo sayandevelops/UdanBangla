@@ -4,10 +4,11 @@ import { generateQuizQuestions } from './services/geminiService';
 import { getQuestionsForTopic } from './services/questionBank'; // Import local bank
 import { TopicCard } from './components/TopicCard';
 import { QuizInterface } from './components/QuizInterface';
-import { TopicDef, Question, QuizStatus, Difficulty } from './types';
-import { Book, Loader2, Award, RefreshCw, ChevronLeft, GraduationCap, School, ArrowRight, FlaskConical, User as UserIcon, LayoutDashboard, Lock } from 'lucide-react';
+import { TopicDef, Question, QuizStatus, Difficulty, SubscriptionTier } from './types';
+import { Book, Loader2, Award, RefreshCw, ChevronLeft, GraduationCap, School, ArrowRight, FlaskConical, User as UserIcon, LayoutDashboard, Lock, Crown } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AuthModal } from './components/AuthModal';
+import { SubscriptionModal } from './components/SubscriptionModal';
 import { ProfileView } from './components/ProfileView';
 import { AdminPanel } from './components/AdminPanel';
 import { AdminLogin } from './components/AdminLogin';
@@ -18,42 +19,51 @@ const GENERAL_TOPICS: TopicDef[] = [
     title: 'Bengal History',
     description: 'Ancient, Medieval, and Modern history of Bengal region.',
     iconName: 'landmark',
-    color: 'text-amber-600'
+    color: 'text-amber-600',
+    isPremium: false
   },
   {
     id: 'wb-geo',
     title: 'WB Geography',
     description: 'Rivers, soil, climate, and demographics of West Bengal.',
     iconName: 'map-pin',
-    color: 'text-emerald-600'
+    color: 'text-emerald-600',
+    isPremium: false
   },
   {
     id: 'polity',
     title: 'Indian Polity',
     description: 'Constitution, Panchayati Raj, and Governance.',
     iconName: 'gavel',
-    color: 'text-blue-600'
+    color: 'text-blue-600',
+    isPremium: true,
+    minTier: 'PRO'
   },
   {
     id: 'bengali-lit',
     title: 'Bengali Literature',
     description: 'Famous authors, poems, and literary eras.',
     iconName: 'book-open',
-    color: 'text-rose-600'
+    color: 'text-rose-600',
+    isPremium: false
   },
   {
     id: 'science',
     title: 'General Science',
     description: 'Physics, Chemistry, and Biology basics for competitive exams.',
     iconName: 'flask',
-    color: 'text-violet-600'
+    color: 'text-violet-600',
+    isPremium: true,
+    minTier: 'PRO'
   },
   {
     id: 'math',
     title: 'Arithmetic',
     description: 'Quantitative aptitude and reasoning.',
     iconName: 'calculator',
-    color: 'text-cyan-600'
+    color: 'text-cyan-600',
+    isPremium: true,
+    minTier: 'PRO'
   }
 ];
 
@@ -63,21 +73,27 @@ const WBJEE_TOPICS: TopicDef[] = [
     title: 'Physics',
     description: 'Mechanics, Optics, Electromagnetism, and Modern Physics for Engineering.',
     iconName: 'atom',
-    color: 'text-violet-600'
+    color: 'text-violet-600',
+    isPremium: true,
+    minTier: 'ELITE'
   },
   {
     id: 'wbjee-chemistry',
     title: 'Chemistry',
     description: 'Physical, Organic, and Inorganic Chemistry.',
     iconName: 'flask',
-    color: 'text-emerald-600'
+    color: 'text-emerald-600',
+    isPremium: true,
+    minTier: 'ELITE'
   },
   {
     id: 'wbjee-math',
     title: 'Mathematics',
     description: 'Calculus, Algebra, Coordinate Geometry, and Trigonometry.',
     iconName: 'calculator',
-    color: 'text-blue-600'
+    color: 'text-blue-600',
+    isPremium: true,
+    minTier: 'ELITE'
   }
 ];
 
@@ -89,7 +105,10 @@ const UdanBanglaApp = () => {
   const [status, setStatus] = useState<QuizStatus>(QuizStatus.IDLE);
   const [view, setView] = useState<AppView>('HOME');
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  
+  // Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   
   const [questions, setQuestions] = useState<Question[]>([]);
   const [score, setScore] = useState(0);
@@ -107,10 +126,27 @@ const UdanBanglaApp = () => {
     }
   };
 
+  const isLocked = (topic: TopicDef) => {
+    if (!topic.isPremium) return false;
+    if (!currentUser) return true;
+    
+    const userTier = currentUser.subscriptionTier || 'FREE';
+    const tierValue = { 'FREE': 0, 'PRO': 1, 'ELITE': 2 };
+    const requiredValue = tierValue[topic.minTier || 'FREE'];
+    
+    return tierValue[userTier] < requiredValue;
+  };
+
   const startQuiz = async (topic: TopicDef) => {
     // Double check auth just in case
     if (!currentUser) {
       setIsAuthModalOpen(true);
+      return;
+    }
+
+    // Check Subscription
+    if (isLocked(topic)) {
+      setIsSubscriptionModalOpen(true);
       return;
     }
 
@@ -223,7 +259,9 @@ const UdanBanglaApp = () => {
               <button onClick={goToClasses} className="hover:text-primary-600 transition-colors">Mock Test</button>
             </li>
             <li>
-              <button onClick={() => requireAuth(() => {})} className="hover:text-primary-600 transition-colors">Leaderboard</button>
+              <button onClick={() => setIsSubscriptionModalOpen(true)} className="hover:text-amber-600 transition-colors text-amber-600 font-semibold flex items-center gap-1">
+                 <Crown size={16} /> Pricing
+              </button>
             </li>
           </ul>
           
@@ -239,15 +277,16 @@ const UdanBanglaApp = () => {
              </button>
              
              {currentUser ? (
-               <button 
+               <div 
                 onClick={goToProfile}
-                className="flex items-center gap-2 rounded-full bg-slate-50 py-1.5 pl-2 pr-4 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                className="flex items-center gap-2 rounded-full bg-slate-50 py-1.5 pl-2 pr-4 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white text-xs">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white text-xs relative">
                     {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+                    {currentUser.subscriptionTier === 'ELITE' && <div className="absolute -top-1 -right-1 bg-amber-400 rounded-full p-[2px] border border-white"><Crown size={8} fill="white" strokeWidth={0}/></div>}
                   </div>
                   <span className="hidden sm:inline-block max-w-[100px] truncate">{currentUser.displayName || 'Student'}</span>
-               </button>
+               </div>
              ) : (
                <button 
                 onClick={() => setIsAuthModalOpen(true)}
@@ -278,6 +317,12 @@ const UdanBanglaApp = () => {
             className="rounded-xl bg-primary-600 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
           >
             Start Mock Test <ArrowRight size={20} />
+          </button>
+          <button 
+            onClick={() => setIsSubscriptionModalOpen(true)}
+            className="rounded-xl bg-white px-8 py-4 text-lg font-bold text-slate-700 shadow-sm border border-slate-200 transition-all hover:bg-slate-50 hover:shadow-md flex items-center gap-2"
+          >
+            <Crown size={20} className="text-amber-500" /> Get Premium
           </button>
         </div>
       </div>
@@ -333,6 +378,9 @@ const UdanBanglaApp = () => {
           <div className="mb-6 rounded-full bg-blue-50 p-6 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
             <FlaskConical size={48} />
           </div>
+          <div className="absolute top-4 right-4 bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1">
+             <Crown size={10} /> ELITE
+          </div>
           <h3 className="text-2xl font-bold text-slate-900 group-hover:text-blue-600">WBJEE</h3>
           <p className="mt-2 text-sm text-slate-500">Joint Entrance Examination for Engineering & Technology.</p>
           <div className="mt-6 flex items-center text-sm font-semibold text-blue-600 opacity-0 transition-all duration-300 group-hover:opacity-100">
@@ -371,7 +419,12 @@ const UdanBanglaApp = () => {
       
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {currentTopics.map((topic) => (
-          <TopicCard key={topic.id} topic={topic} onSelect={startQuiz} />
+          <TopicCard 
+            key={topic.id} 
+            topic={topic} 
+            onSelect={startQuiz} 
+            isLocked={isLocked(topic)}
+          />
         ))}
       </div>
     </main>
@@ -479,6 +532,7 @@ const UdanBanglaApp = () => {
       {renderHeader()}
       
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <SubscriptionModal isOpen={isSubscriptionModalOpen} onClose={() => setIsSubscriptionModalOpen(false)} />
 
       {status === QuizStatus.IDLE && (
         <>

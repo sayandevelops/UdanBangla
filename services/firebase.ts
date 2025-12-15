@@ -1,6 +1,7 @@
+
 // Mock implementation of Firebase services
 // This allows the app to run without requiring a valid Firebase project configuration or node_modules
-import { User as UserType } from '../types';
+import { User as UserType, SubscriptionTier } from '../types';
 
 // Mock User object matching the structure expected by the app
 const MOCK_USER: UserType = {
@@ -9,6 +10,7 @@ const MOCK_USER: UserType = {
   phoneNumber: null,
   displayName: 'Demo Student',
   photoURL: null,
+  subscriptionTier: 'FREE',
   metadata: {
     creationTime: new Date().toISOString(),
     lastSignInTime: new Date().toISOString()
@@ -21,6 +23,7 @@ const ADMIN_USER: UserType = {
   phoneNumber: null,
   displayName: 'Admin User',
   photoURL: null,
+  subscriptionTier: 'ELITE',
   metadata: {
     creationTime: new Date().toISOString(),
     lastSignInTime: new Date().toISOString()
@@ -31,7 +34,8 @@ let currentUser: UserType | null = null;
 const authListeners: ((user: UserType | null) => void)[] = [];
 
 const notifyListeners = () => {
-  authListeners.forEach(listener => listener(currentUser));
+  // Return a copy to ensure React detects changes
+  authListeners.forEach(listener => listener(currentUser ? { ...currentUser } : null));
 };
 
 // --- Auth Exports ---
@@ -57,7 +61,7 @@ export const signOut = async (authInstance: any) => {
 };
 
 export const signInWithPopup = async (authInstance: any, provider: any) => {
-  currentUser = MOCK_USER;
+  currentUser = { ...MOCK_USER, subscriptionTier: 'FREE' };
   notifyListeners();
   return Promise.resolve({ user: currentUser });
 };
@@ -70,7 +74,8 @@ export const signInWithEmailAndPassword = async (authInstance: any, email: strin
       ...MOCK_USER,
       uid: 'user-' + Date.now(),
       email: email,
-      displayName: email.split('@')[0]
+      displayName: email.split('@')[0],
+      subscriptionTier: 'FREE'
     };
   }
   notifyListeners();
@@ -82,7 +87,8 @@ export const createUserWithEmailAndPassword = async (authInstance: any, email: s
     ...MOCK_USER,
     uid: 'new-user-' + Date.now(),
     email: email,
-    displayName: email.split('@')[0]
+    displayName: email.split('@')[0],
+    subscriptionTier: 'FREE'
   };
   notifyListeners();
   return Promise.resolve({ user: currentUser });
@@ -97,7 +103,8 @@ export const signInWithPhoneNumber = async (authInstance: any, phoneNumber: stri
           uid: 'phone-user-' + Date.now(),
           email: null,
           phoneNumber: phoneNumber,
-          displayName: 'Mobile User'
+          displayName: 'Mobile User',
+          subscriptionTier: 'FREE'
         };
         notifyListeners();
         return { user: currentUser };
@@ -111,6 +118,17 @@ export const updateProfile = async (user: any, profile: { displayName?: string, 
   if (currentUser) {
     if (profile.displayName) currentUser.displayName = profile.displayName;
     if (profile.photoURL) currentUser.photoURL = profile.photoURL;
+    notifyListeners();
+  }
+  return Promise.resolve();
+};
+
+export const updateUserSubscription = async (uid: string, tier: SubscriptionTier) => {
+  // Simulate API latency
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  if (currentUser && currentUser.uid === uid) {
+    currentUser.subscriptionTier = tier;
     notifyListeners();
   }
   return Promise.resolve();

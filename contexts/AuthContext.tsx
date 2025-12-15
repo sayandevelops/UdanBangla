@@ -1,11 +1,13 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, onAuthStateChanged, signOut } from '../services/firebase';
-import { User } from '../types';
+import { auth, onAuthStateChanged, signOut, updateUserSubscription } from '../services/firebase';
+import { User, SubscriptionTier } from '../types';
 
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   logout: () => Promise<void>;
+  upgradeSubscription: (tier: SubscriptionTier) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,10 +38,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signOut(auth);
   };
 
+  const upgradeSubscription = async (tier: SubscriptionTier) => {
+    if (currentUser) {
+      await updateUserSubscription(currentUser.uid, tier);
+      // State updates via onAuthStateChanged listener in firebase.ts mock
+    }
+  };
+
   const value = {
     currentUser,
     loading,
-    logout
+    logout,
+    upgradeSubscription
   };
 
   return (

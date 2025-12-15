@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserProfileStats } from '../types';
@@ -21,7 +22,7 @@ const MOCK_STATS: UserProfileStats = {
   testsAttempted: 14,
   averageScore: 72,
   globalRank: 1420,
-  subscriptionPlan: 'Pro',
+  subscriptionPlan: 'PRO',
   subjectWise: [
     { subject: 'Physics', accuracy: 65, totalQuestions: 150, color: 'bg-violet-500' },
     { subject: 'Chemistry', accuracy: 82, totalQuestions: 140, color: 'bg-emerald-500' },
