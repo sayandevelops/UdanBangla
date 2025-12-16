@@ -7,6 +7,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   logout: () => Promise<void>;
+  upgradeSubscription: (tier: 'MOCK_TEST' | 'PRO' | 'ELITE') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,10 +44,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signOut(authInstance);
   };
 
+  const upgradeSubscription = async (tier: 'MOCK_TEST' | 'PRO' | 'ELITE') => {
+    if (currentUser) {
+      const updatedUser = { ...currentUser, subscriptionTier: tier };
+      setCurrentUser(updatedUser);
+      // In a real app, you would also save this to your backend.
+      // e.g., await updateUserSubscriptionInDb(currentUser.uid, tier);
+    }
+  };
+
   const value = {
     currentUser,
     loading,
-    logout
+    logout,
+    upgradeSubscription
   };
 
   return (

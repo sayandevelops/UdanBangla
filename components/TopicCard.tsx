@@ -6,6 +6,7 @@ import { BookOpen, MapPin, Landmark, FlaskConical, Calculator, Gavel, Atom, Lock
 interface TopicCardProps {
   topic: TopicDef;
   onSelect: (topic: TopicDef) => void;
+  onUnlock: (topic: TopicDef) => void;
   isLocked?: boolean;
 }
 
@@ -19,12 +20,12 @@ const IconMap: Record<string, React.ElementType> = {
   'atom': Atom
 };
 
-export const TopicCard: React.FC<TopicCardProps> = ({ topic, onSelect, isLocked = false }) => {
+export const TopicCard: React.FC<TopicCardProps> = ({ topic, onSelect, onUnlock, isLocked = false }) => {
   const Icon = IconMap[topic.iconName] || BookOpen;
 
   return (
     <button
-      onClick={() => onSelect(topic)}
+      onClick={() => (isLocked ? onUnlock(topic) : onSelect(topic))}
       className={`group relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:shadow-xl text-left border bg-white ${isLocked ? 'border-slate-200 opacity-90' : 'border-slate-200 hover:-translate-y-1'}`}
     >
       <div className={`absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity`}>

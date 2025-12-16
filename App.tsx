@@ -11,6 +11,7 @@ import { AuthModal } from './components/AuthModal';
 import { ProfileView } from './components/ProfileView';
 import { AdminPanel } from './components/AdminPanel';
 import { AdminLogin } from './components/AdminLogin';
+import { PaymentModal } from './components/PaymentModal';
 import { recordQuizResult, updateUserStatsOnQuiz } from './services/userService';
 
 const GENERAL_TOPICS: TopicDef[] = [
@@ -64,21 +65,24 @@ const WBJEE_TOPICS: TopicDef[] = [
     title: 'Physics',
     description: 'Mechanics, Optics, Electromagnetism, and Modern Physics for Engineering.',
     iconName: 'atom',
-    color: 'text-violet-600'
+    color: 'text-violet-600',
+    isPremium: true,
   },
   {
     id: 'wbjee-chemistry',
     title: 'Chemistry',
     description: 'Physical, Organic, and Inorganic Chemistry.',
     iconName: 'flask',
-    color: 'text-emerald-600'
+    color: 'text-emerald-600',
+    isPremium: true,
   },
   {
     id: 'wbjee-math',
     title: 'Mathematics',
     description: 'Calculus, Algebra, Coordinate Geometry, and Trigonometry.',
     iconName: 'calculator',
-    color: 'text-blue-600'
+    color: 'text-blue-600',
+    isPremium: true,
   }
 ];
 
@@ -91,6 +95,7 @@ const UdanBanglaApp = () => {
   const [view, setView] = useState<AppView>('HOME');
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   
   const [questions, setQuestions] = useState<Question[]>([]);
   const [score, setScore] = useState(0);
@@ -98,6 +103,18 @@ const UdanBanglaApp = () => {
 
   const ADMIN_EMAIL = 'sayon8023@gmail.com';
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
+
+  const handleUnlock = () => {
+    requireAuth(() => {
+      setIsPaymentModalOpen(true);
+    });
+  };
+
+  const handlePaymentSuccess = () => {
+    setIsPaymentModalOpen(false);
+    // The subscription is already updated in RazorpayPayment component.
+    // We can optionally show a success message here.
+  };
 
   // Helper to guard actions
   const requireAuth = (action: () => void) => {
@@ -363,7 +380,13 @@ const UdanBanglaApp = () => {
       
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {currentTopics.map((topic) => (
-          <TopicCard key={topic.id} topic={topic} onSelect={startQuiz} />
+          <TopicCard 
+            key={topic.id} 
+            topic={topic} 
+            onSelect={startQuiz} 
+            onUnlock={handleUnlock}
+            isLocked={topic.isPremium && currentUser?.subscriptionTier !== 'PRO' && currentUser?.subscriptionTier !== 'ELITE' && currentUser?.subscriptionTier !== 'MOCK_TEST'}
+          />
         ))}
       </div>
     </main>
@@ -467,6 +490,11 @@ const UdanBanglaApp = () => {
       {renderHeader()}
       
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <PaymentModal 
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
 
       {status === QuizStatus.IDLE && (
         <>

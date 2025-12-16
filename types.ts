@@ -5,7 +5,7 @@ export enum Difficulty {
   HARD = 'Hard'
 }
 
-export type SubscriptionTier = 'FREE' | 'PRO' | 'ELITE';
+export type SubscriptionTier = 'FREE' | 'PRO' | 'ELITE' | 'MOCK_TEST';
 
 export interface Question {
   id: number | string;
