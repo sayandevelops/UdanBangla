@@ -25,6 +25,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBack }
     setLoading(true);
 
     try {
+      const auth = getAuthInstance();
       await signInWithEmailAndPassword(auth, email, password);
       // If success, callback to parent to change view
       onLoginSuccess();
