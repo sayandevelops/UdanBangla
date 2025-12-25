@@ -92,6 +92,16 @@ export const clearTopicQuestions = async (topicId: string): Promise<void> => {
   }
 };
 
+export const deleteQuestionById = async (questionId: string | number): Promise<void> => {
+  try {
+    const db = getDb();
+    await firestore.deleteDoc(firestore.doc(db, QUESTIONS_COLLECTION, String(questionId)));
+  } catch (error) {
+    console.error('Failed to delete question from Firestore', error);
+    throw error;
+  }
+};
+
 // Utility used in admin profile to show total items in the bank
 export const getTotalQuestionCount = async (): Promise<number> => {
   try {

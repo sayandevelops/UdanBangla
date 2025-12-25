@@ -7,6 +7,12 @@ export enum Difficulty {
 
 export type SubscriptionTier = 'FREE' | 'PRO' | 'ELITE' | 'MOCK_TEST';
 
+export enum AdminModule {
+  MOCK_TEST = 'MOCK_TEST',
+  COURSE = 'COURSE',
+  PRACTICE_QUESTIONS = 'PRACTICE_QUESTIONS'
+}
+
 export interface Question {
   id: number | string;
   questionText: string;
